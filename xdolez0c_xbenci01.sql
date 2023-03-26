@@ -1,23 +1,3 @@
--- Drop all tables at beginning
-DECLARE
-  v_count NUMBER;
-BEGIN
-  -- Disable foreign key constraints
-  EXECUTE IMMEDIATE 'SET CONSTRAINTS ALL DEFERRED';
-
-  -- Loop through all tables and drop them
-  FOR c IN (SELECT table_name FROM user_tables) LOOP
-    EXECUTE IMMEDIATE 'DROP TABLE ' || c.table_name || ' CASCADE CONSTRAINTS';
-  END LOOP;
-
-  -- Enable foreign key constraints
-  EXECUTE IMMEDIATE 'SET CONSTRAINTS ALL IMMEDIATE';
-
-  -- Display message with number of tables dropped
-  SELECT COUNT(*) INTO v_count FROM user_tables;
-  DBMS_OUTPUT.PUT_LINE(v_count || ' tables dropped successfully.');
-END;
-
 CREATE TABLE Softwarova_aplikace (
   id NUMBER GENERATED AS IDENTITY,
   nazev VARCHAR2(255) NOT NULL,
