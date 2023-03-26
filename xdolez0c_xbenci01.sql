@@ -4,15 +4,15 @@ DECLARE
 BEGIN
   -- Disable foreign key constraints
   EXECUTE IMMEDIATE 'SET CONSTRAINTS ALL DEFERRED';
-  
+
   -- Loop through all tables and drop them
   FOR c IN (SELECT table_name FROM user_tables) LOOP
     EXECUTE IMMEDIATE 'DROP TABLE ' || c.table_name || ' CASCADE CONSTRAINTS';
   END LOOP;
-  
+
   -- Enable foreign key constraints
   EXECUTE IMMEDIATE 'SET CONSTRAINTS ALL IMMEDIATE';
-  
+
   -- Display message with number of tables dropped
   SELECT COUNT(*) INTO v_count FROM user_tables;
   DBMS_OUTPUT.PUT_LINE(v_count || ' tables dropped successfully.');
@@ -56,6 +56,7 @@ CREATE TABLE Organizace (
   PRIMARY KEY (ico)
 );
 
+-- generelizace/specializace je implementovana pomoci "hlavni tabulky" fyzicka osoba, na kterou mají referenci tabulkz vyvojar a pracovnik organizace pomoci foreign key"
 CREATE TABLE Vyvojar (
   rodne_cislo VARCHAR2(11) NOT NULL CHECK (REGEXP_LIKE(rodne_cislo, '^[0-9]{6}/[0-9]{3,4}$')),
   PRIMARY KEY(rodne_cislo),
