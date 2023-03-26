@@ -17,6 +17,7 @@ CREATE TABLE Verze (
   FOREIGN KEY (aplikace_id) REFERENCES Softwarova_aplikace(id) ON DELETE CASCADE
 );
 
+-- generelizace/specializace je implementovana pomoci "hlavni tabulky" fyzicka osoba, na kterou mají referenci tabulky vyvojar a pracovnik organizace pomoci foreign key"
 CREATE TABLE Fyzicka_osoba (
   rodne_cislo VARCHAR2(11) NOT NULL CHECK (REGEXP_LIKE(rodne_cislo, '^[0-9]{6}/[0-9]{3,4}$')),
   jmeno VARCHAR2(255) NOT NULL,
@@ -36,13 +37,14 @@ CREATE TABLE Organizace (
   PRIMARY KEY (ico)
 );
 
--- generelizace/specializace je implementovana pomoci "hlavni tabulky" fyzicka osoba, na kterou mají referenci tabulkz vyvojar a pracovnik organizace pomoci foreign key"
+-- dedi vlastnosti fyzicka_osoba
 CREATE TABLE Vyvojar (
   rodne_cislo VARCHAR2(11) NOT NULL CHECK (REGEXP_LIKE(rodne_cislo, '^[0-9]{6}/[0-9]{3,4}$')),
   PRIMARY KEY(rodne_cislo),
   FOREIGN KEY (rodne_cislo) REFERENCES Fyzicka_osoba(rodne_cislo) ON DELETE CASCADE
 );
 
+-- dedi vlastnosti fyzicka_osoba
 CREATE TABLE Pracovnik_organizace (
   rodne_cislo VARCHAR2(11) NOT NULL CHECK (REGEXP_LIKE(rodne_cislo, '^[0-9]{6}/[0-9]{3,4}$')),
   PRIMARY KEY(rodne_cislo),
@@ -140,3 +142,6 @@ VALUES ('12345678', '012345/1235', TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE(
 
 INSERT INTO Nakupuje (organizace_id, smlouva_cislo)
 VALUES ('12345678', 1);
+
+INSERT INTO Obsahuje (smlouva_cislo, verze_kod, pocet_instalaci)
+VALUES (1,1,3);
