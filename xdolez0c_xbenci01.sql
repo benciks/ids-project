@@ -130,7 +130,7 @@ INSERT INTO Pracovnik_organizace (rodne_cislo)
 VALUES ('012345/1235');
 
 INSERT INTO Licencni_smlouva (datum_uzavreni, ucinnost_od, ucinnost_do, pracovnik_id, vyvojar_id, celkova_cena)
-VALUES (TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE('2023-02-01', 'YYYY-MM-DD'), TO_DATE('2024-01-01', 'YYYY-MM-DD'), '012345/1234', '012345/1234', 1000);
+VALUES (TO_DATE('2023-01-01', 'YYYY-MM-DD'), TO_DATE('2023-02-01', 'YYYY-MM-DD'), TO_DATE('2024-01-01', 'YYYY-MM-DD'), '012345/1235', '012345/1234', 1000);
 
 INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
 VALUES ('012345/1234', 1, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2022-12-31', 'YYYY-MM-DD'));
