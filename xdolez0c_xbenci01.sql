@@ -145,3 +145,58 @@ VALUES ('12345678', 1);
 
 INSERT INTO Obsahuje (smlouva_cislo, verze_kod, pocet_instalaci)
 VALUES (1,1,3);
+
+INSERT INTO Obsahuje (smlouva_cislo, verze_kod, pocet_instalaci)
+VALUES (2,2,10);
+
+-- Ziskat vsetky verzie softwarovej aplikacie (DOUBLE JOIN)
+-- USECASE: Po kliknuti na detail se zobrazi vsechny verze dane aplikace
+SELECT *
+FROM Verze JOIN Softwarova_aplikace
+  ON Verze.aplikace_id = Softwarova_aplikace.id;
+
+-- Ziskat pocty instalacii pre dane verzie (DOUBLE JOIN)
+-- USECASE: zobrazeni poctu instalaci dane verze pri zobrazeni detailu verze
+SELECT Verze.nazev, Verze.kod, Obsahuje.pocet_instalaci
+FROM Obsahuje JOIN Verze
+  ON Obsahuje.verze_kod = Verze.kod;
+
+-- Rodne cisla pracovnikov pre jednotlive organizacie (TRIPLE JOIN)
+-- USECASE: Zobrazenie pracovnikov danej organizacie pri kliknuti na detail organizace
+SELECT Pracovnik_organizace.rodne_cislo, Zastupuje.datum_od, Zastupuje.datum_do, Organizace.obchodni_nazev, Organizace.ico
+FROM Pracovnik_organizace
+JOIN Zastupuje
+  ON Pracovnik_organizace.rodne_cislo = Zastupuje.pracovnik_id
+JOIN Organizace
+  ON Zastupuje.organizace_id = Organizace.ico;
+
+-- Ziskat pocet licencnich smluv pro danou organizaci (JOIN + COUNT + GROUP BY)
+-- USECASE: zobrazeni poctu licencnich smluv pro danou organizaci pro kliknuti na detail organizace
+SELECT Organizace.obchodni_nazev, COUNT(Nakupuje.smlouva_cislo)
+FROM Organizace JOIN Nakupuje
+  ON Organizace.ico = Nakupuje.organizace_id
+GROUP BY Organizace.obchodni_nazev;
+
+-- Ziskat celkovou cenu licencnich smluv za roky dane organizace (JOIN + SUM + GROUP BY)
+-- USECASE: vykresleni grafu s celkovou cenou licencnich smluv za roky v pro statistiku
+SELECT TO_CHAR(datum_uzavreni, 'YYYY') AS rok, SUM(celkova_cena)
+FROM Licencni_smlouva
+GROUP BY TO_CHAR(datum_uzavreni, 'YYYY');
+
+-- Ziskat vsechny licencni smlouvy verze mladsi nez minuly rok (JOIN + WHERE + IN)
+-- USECASE: filtr pri zobrazovani licencnich smluv
+SELECT *
+FROM Licencni_smlouva
+JOIN Obsahuje
+  ON Licencni_smlouva.cislo = Obsahuje.smlouva_cislo
+WHERE Obsahuje.verze_kod
+IN (SELECT kod FROM Verze WHERE datum_vydani > TO_DATE('2020-01-01', 'YYYY-MM-DD'));
+
+-- select pomoci IN (SELECT + IN + JOIN + WHERE)
+-- USECASE: zobrazeni licencnich smluv pro vybrane verze, filtr podle verzi
+SELECT *
+FROM Licencni_smlouva
+JOIN Obsahuje
+  ON Licencni_smlouva.cislo = Obsahuje.smlouva_cislo
+WHERE Obsahuje.verze_kod
+IN (SELECT kod FROM Verze WHERE nazev = 'Word 2022' OR nazev = 'Excel 2022');
