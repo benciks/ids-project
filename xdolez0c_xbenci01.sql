@@ -18,6 +18,16 @@ EXCEPTION
     END IF;
 END;
 
+-- drop materialized views
+BEGIN
+  EXECUTE IMMEDIATE 'DROP MATERIALIZED VIEW organizace_info';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE != -12003 THEN
+      RAISE;
+    END IF;
+END;
+
 CREATE TABLE Softwarova_aplikace (
   id NUMBER GENERATED AS IDENTITY,
   nazev VARCHAR2(255) NOT NULL,
@@ -225,21 +235,31 @@ WHERE Obsahuje.verze_kod
 IN (SELECT kod FROM Verze WHERE nazev = 'Word 2022' OR nazev = 'Excel 2022');
 
 -- select pomoci (WITH + CASE)
--- USECASE: zobrazeni aktivnich licencnich pro vybrane fyzicke osoby
-WITH aktivni_licencni_smlouvy AS (
-    SELECT *
-    FROM Licencni_smlouva
-    WHERE ucinnost_do >= SYSDATE OR ucinnost_do IS NULL
+-- USECASE: pocet aktivnich licencnich smluv pro zamestnance
+
+-- inserty pre ukazku - mobilne platformy
+INSERT INTO Verze (nazev, popis, platforma, datum_vydani, aplikace_id)
+VALUES ('Word Mobile 2022', 'Latest mobile version of Word', 'Android', TO_DATE('2022-01-01', 'YYYY-MM-DD'), 1);
+
+INSERT INTO Verze (nazev, popis, platforma, datum_vydani, aplikace_id)
+VALUES ('Excel Mobile 2022', 'Latest mobile of Excel', 'iOS', TO_DATE('2022-01-01', 'YYYY-MM-DD'), 2);
+
+WITH plaforma_type_cte AS (
+SELECT
+  CASE
+    WHEN platforma = 'Windows' THEN 'Desktop'
+    WHEN platforma = 'Android' OR platforma = 'iOS' THEN 'Mobile'
+    ELSE 'Other'
+  END AS platforma_typ,
+  aplikace_id AS aplikace_id,
+  kod as id
+FROM VERZE
 )
-SELECT CASE
-    WHEN pracovnik_id IS NOT NULL THEN pracovnik_id
-    ELSE vyvojar_id
-END AS vyvojar_id
-FROM aktivni_licencni_smlouvy
-GROUP BY CASE
-    WHEN pracovnik_id IS NOT NULL THEN pracovnik_id
-    ELSE vyvojar_id
-END
+SELECT s.nazev, v.nazev, v.platforma, p.platforma_typ
+FROM Softwarova_aplikace s
+JOIN Verze v ON s.id = v.aplikace_id
+JOIN plaforma_type_cte p ON p.id = v.kod
+ORDER BY s.nazev, v.nazev;
 
 ------------------------------------------------------------
 -- TRIGGERS
@@ -255,12 +275,11 @@ BEGIN
   SELECT COUNT(*)
   INTO v_version_count
   FROM Pracoval_na p
-  JOIN Verze v ON p.verze_kod = v.kod
-  WHERE p.rodne_cislo = :new.rodne_cislo AND v.datum_do >= SYSDATE;
+  WHERE p.rodne_cislo = :new.rodne_cislo AND p.datum_do >= SYSDATE;
 
   -- ak je pocet verzii vacsi ako 3, vyhodi sa chyba pred insertom alebo updatom
-  IF v_version_count >= 3 THEN
-    RAISE_APPLICATION_ERROR(-20001, 'The developer is already working on 5 or more active versions.');
+  IF v_version_count > 3 THEN
+    RAISE_APPLICATION_ERROR(-20001, 'The developer is already working on 3 or more active versions.');
   END IF;
 END;
 
@@ -279,32 +298,24 @@ END;
 INSERT INTO Verze (nazev, popis, platforma, datum_vydani, aplikace_id)
 VALUES ('Excel 2023', 'Latest version of Excel', 'Windows', TO_DATE('2022-01-01', 'YYYY-MM-DD'), 2);
 INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
-VALUES ('012345/1234', 1, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
-INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
-VALUES ('012345/1234', 2, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
-INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
 VALUES ('012345/1234', 3, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
+
+INSERT INTO Verze (nazev, popis, platforma, datum_vydani, aplikace_id)
+VALUES ('Excel 2024', 'version of Excel', 'Linux', TO_DATE('2022-01-01', 'YYYY-MM-DD'), 2);
+INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
+VALUES ('012345/1234', 4, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
+
+INSERT INTO Verze (nazev, popis, platforma, datum_vydani, aplikace_id)
+VALUES ('Excel 2024', 'version of Excel', 'Windows', TO_DATE('2022-01-01', 'YYYY-MM-DD'), 2);
+-- na tomto mieste sa vyhodi chyba, lebo vyvojar uz pracuje na 3 verzii
+INSERT INTO Pracoval_na (rodne_cislo, verze_kod, datum_od, datum_do)
+VALUES ('012345/1234', 5, TO_DATE('2022-01-01', 'YYYY-MM-DD'), TO_DATE('2024-12-31', 'YYYY-MM-DD'));
 
 -- 2. Skontroluje generaciu webovej stranky
 SELECT * FROM Softwarova_aplikace;
-INSERT INTO Softwarova_aplikace (nazev, popis, webova_stranka, datum_vydani)
-VALUES ('Skvela aplikacia', 'Test na generaciu web adresy', NULL, TO_DATE('2020-01-01', 'YYYY-MM-DD'));
+INSERT INTO Softwarova_aplikace (nazev, popis)
+VALUES ('Skvela aplikacia', 'Test na generaciu web adresy');
 SELECT * FROM Softwarova_aplikace;
-
--- TODO
--- definice pristupovych prav k databazovym objektum pro druheho clena tymu
--- vytvoreni alespon jednoho materialozvaneho pohledu patrici druhemu clenu a pouzivajici tabulky definovane prvnim clenem
-
--- DONE
--- showcase the triggers - insert/select
--- explicitni vytvoreni alespon jednoho indexu, aby pomohl optimalizovat zpracovani dotazu, uveden dotaz, na ktery ma index vliv, popsat v docs (lze zkombinovat s EXPLAIN PLAN)
--- pouzit alespon jeden EXPLAIN PLAN pro ziskani informaci o pranu provedeni databazoveho dotazu se spojnemo alespon dvou tabulek, agregacni funkci a klauzuli group by
--- 2x triggers non trivial DONE
--- vytvoreni alespon dvou netrivialnich ulozenych procedur, ve kterych musi byt dohromady - stored procedure DONE
-    -- jeden kurzor
-    -- osetreni vyjimek
-    -- pouziti promenne s datovym typem odkazujicim se na radek tabulky (table_name.column_name%TYPE nebo table_name%ROWTYPE)
--- vyvtvoreni komplexniho prikazu select s WITH a operator CASE. v poznamce co dotaz ziskava DONE
 
 ------------------------------------------------------------
 -- Procedures
@@ -355,11 +366,10 @@ END;
 ------------------------------------------------------------
 -- INDEX + EXPLAIN PLAN
 ------------------------------------------------------------
--- Vytvori index na stlpec id tabulky Softwarova_aplikace
--- pre zrychlenie joinu s tabulkou Verze
--- SELECT zrata pocet verzi aplikacie a zoradi ich podla nazvu aplikacie
-CREATE INDEX idx_softwarova_aplikace_verze ON Softwarova_aplikace (id)
-INVISIBLE;
+-- index pre aplikace_id a kod vo Verze - aplikace_id kvoli joinu a kod kvoli agregacnej funkcii COUNT
+-- SELECT zrata pocet verzi aplikacie a zoradi ich podla nazvu aplikacie - spustit pred a po vytvoreni indexu
+CREATE INDEX verze_aplikace_id_idx ON Verze (aplikace_id);
+CREATE INDEX verze_aplikace_id_kod_idx ON Verze (aplikace_id, kod);
 
 EXPLAIN PLAN FOR
 SELECT Softwarova_aplikace.nazev, COUNT(Verze.kod)
@@ -367,7 +377,6 @@ FROM Softwarova_aplikace
 JOIN Verze ON Softwarova_aplikace.id = Verze.aplikace_id
 GROUP BY Softwarova_aplikace.nazev;
 
--- TODO: Come back to this 
 -- define access rights for all tables only for the first member of the team
 GRANT ALL ON Verze TO xbenci01;
 GRANT ALL ON Licencni_smlouva TO xbenci01;
@@ -375,11 +384,18 @@ GRANT ALL ON Obsahuje TO xbenci01;
 GRANT ALL ON Pracoval_na TO xbenci01;
 GRANT ALL ON Pracovnik_organizace TO xbenci01;
 
--- materialized view pro ziskani vsetkych licenci dle jmena aplikace
-CREATE MATERIALIZED VIEW xbenci01.licence_for_app AS
-SELECT a.nazev AS aplikace_nazev, ls.cislo, ls.celkova_cena, ls.ucinnost_od, ls.ucinnost_do, ls.pracovnik_id, ls.vyvojar_id
-FROM xbenci01.licencni_smlouva ls
-JOIN xbenci01.obsahuje o ON o.smlouva_cislo = ls.cislo
-JOIN xbenci01.verze v ON v.kod = o.verze_kod
-JOIN xbenci01.softwarova_aplikace a ON a.id = v.aplikace_id
-GROUP BY v.aplikace_id;
+-- materialized view pro ziskani vsetkych organizacii, kolik maju zamestnancov a kolko licencnych zmluv
+-- refresh aby sa data obnovili kazdu hodinu
+CREATE MATERIALIZED VIEW xbenci01.organizace_info
+REFRESH FORCE ON DEMAND
+START WITH SYSDATE
+NEXT SYSDATE + 1/24
+AS SELECT o.obchodni_nazev, COUNT(DISTINCT p.rodne_cislo) AS pocet_pracovnikov, COUNT(DISTINCT ls.cislo) AS pocet_licencnych_zmluv
+FROM organizace o
+JOIN zastupuje z ON z.organizace_id = o.ico
+JOIN pracovnik_organizace p ON p.rodne_cislo = z.pracovnik_id
+JOIN licencni_smlouva ls ON ls.pracovnik_id = p.rodne_cislo
+GROUP BY o.obchodni_nazev;
+
+SELECT * FROM organizace_info
+WHERE obchodni_nazev = 'Example Ltd.';
